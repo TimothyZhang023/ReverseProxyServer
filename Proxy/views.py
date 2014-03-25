@@ -1,4 +1,5 @@
 from django.http import HttpResponse
+from Proxy import ProxyCache as FastCache
 from django.shortcuts import render
 from os import environ
 from ReverseProxy import conf
@@ -6,90 +7,87 @@ import urllib2
 import mimetypes
 import urllib
 import cookielib
+import pickle
+import hashlib
+
 # Create your views here.
 PROXY_URL = conf.PROXY_URL
 OUR_URL = conf.OUR_URL
-kv = ''
-is_sae = environ.get("APP_NAME", "")
-if not is_sae:
-    cookie_path = r"./cookies.txt"
-    cookie_url = r"./cookies.txt"
-
-else:
-#SAE
-    from sae.ext.storage import monkey
-    import sae.kvdb
-
-    monkey.patch_all()
-    cookie_path = r"/s/cookie/cookies.txt"
-    cookie_url = r'http://reverseproxy4py-cookie.stor.sinaapp.com/cookies.txt'
-
-    kv = sae.kvdb.KVClient()
-
 
 
 def index(request):
-    if is_sae and  kv.get('cookie') == '':
-        kv.set('cookie', 'init')
-        
+    #process URL
     path = request.get_full_path()  #.replace('/proxy', '')
-
     real_path = PROXY_URL + path
 
-    # print real_path
+    #process MIME
+    remote_mime = mimetypes.guess_type(real_path)
+    remote_mime = remote_mime[0]
 
-    mime = mimetypes.guess_type(real_path)
-    mime = mime[0]
-
-    if mime == 'application/php':
-        mime = ''
+    if remote_mime == 'application/php':
+        remote_mime = ''
     else:
         pass
-        # print mime
 
-    print mime,path
-    params_POST = request.POST
+    if remote_mime:
+        if remote_mime.startswith('image') or remote_mime.startswith('application/javascript'):
+            cache_key = remote_mime + '-' + hashlib.md5(remote_mime).hexdigest().upper()
+        else:
+            cache_key = 'none'
+    else:
+        cache_key = 'none'
 
+    if (not FastCache.check_cache(cache_key)) and (not cache_key == 'none'):
+        remote_content = FastCache.get_cache(cache_key)
+        if remote_content:
+            return HttpResponse(remote_content, content_type=remote_mime)
+
+    print cache_key
+    print remote_mime, path
+
+    #process POST
     dict = {}
-    for (k, v) in params_POST.items():
+    for (k, v) in request.POST.items():
         print "dict[%s]=" % k, v
         dict[k] = v.encode("utf-8")
-        #.encode("utf-8")
-
-    params_files = request._files
 
 
+    #process COOKIES
+    cookie_path = r"./cookies.txt"
+    cookies = cookielib.MozillaCookieJar(cookie_path)
 
-    # Cookie_handler = urllib2.HTTPCookieProcessor()
-    # req = urllib2.build_opener(Cookie_handler)
-    # urllib2.install_opener(req)
-    cookiefile = cookie_path
-    cookies = cookielib.MozillaCookieJar(cookie_url)
-    if is_sae:
-        cookies._cookies = kv.get("cookie")
+    if request.COOKIES.has_key("cookie"):
+        cookies_str = pickle.loads(request.COOKIES["cookie"])
+        cookies._cookies = cookies_str
 
     try:
         cookies.load(ignore_discard=True, ignore_expires=True)
     except Exception:
-        print Exception.message
+        pass
+        #print Exception.message
 
+    #process Request
     opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(cookies))
-
     data = urllib.urlencode(dict)
-
     req = urllib2.Request(real_path, data=data)
 
-    #req.add_header('Cookie', value)
+    #todo process request._files
+    #req.add_data(files)
+    #process Remote_Response
+    remote_response = opener.open(req)
+    remote_content = remote_response.read().replace(PROXY_URL, OUR_URL)
+    response = HttpResponse(remote_content, content_type=remote_mime)
 
-    response = opener.open(req)
-
-    content = response.read().replace(PROXY_URL, OUR_URL)
-
+    #save COOKIES
     if request.method == 'POST':
-        cookies.extract_cookies(response, req)
-        cookies.save(cookiefile, ignore_discard=True, ignore_expires=True)
+        cookies.extract_cookies(remote_response, req)
+        cookies_str = pickle.dumps(cookies._cookies)
+        response.set_cookie("cookie", cookies_str)
 
-    if is_sae:
-        kv.set('cookie', cookies._cookies)
+        # cookies.save(cookiefile, ignore_discard=True, ignore_expires=True)
 
-    return HttpResponse(content, content_type=mime)#, content_type="application/json"
+    #FastCache
+    if not cache_key == 'none':
+        FastCache.set_cache(cache_key, remote_content)
+
+    return response
