@@ -29,7 +29,7 @@ else:
 
 
 def index(request):
-    if kv.get('cookie') == '':
+    if is_sae and  kv.get('cookie') == '':
         kv.set('cookie', 'init')
         
     path = request.get_full_path()  #.replace('/proxy', '')
@@ -47,6 +47,7 @@ def index(request):
         pass
         # print mime
 
+    print mime,path
     params_POST = request.POST
 
     dict = {}
