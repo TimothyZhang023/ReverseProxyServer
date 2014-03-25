@@ -1,1 +1,5 @@
-This file was created by PyCharm 2.7.3 for binding GitHub repository
+A reverse proxy server written in python using django
+
+compatible with sina app engine (SAE)
+
+demo on sae : http://reverseproxy4py.sinaapp.com/
