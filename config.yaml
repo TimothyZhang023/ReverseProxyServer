@@ -1,0 +1,10 @@
+name: reverseproxy4py
+version: 1
+
+libraries:
+- name: "django"
+  version: "1.5"
+
+handlers:
+- url: /static
+  static_dir: static

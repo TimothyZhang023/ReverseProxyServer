@@ -1,0 +1,8 @@
+# Netscape HTTP Cookie File
+# http://www.netscape.com/newsref/std/cookie_spec.html
+# This is a generated file!  Do not edit.
+
+127.0.0.1	FALSE	/	FALSE		PHPSESSID	cuvlg824aomrrd2ak3qfsmku22
+127.0.0.1	FALSE	/	FALSE	1396035692	greencms_user_session	a8e106f566e58335c12dd286872587d6
+33458.vhost49.boxcdn.cn	FALSE	/	FALSE		PHPSESSID	sqfu17lkrg7fp8spgk5p61f7s6
+33458.vhost49.boxcdn.cn	FALSE	/	FALSE	1396071191	greencms_user_session	758ad2dd6bec7ef34914797d420d4ad6
